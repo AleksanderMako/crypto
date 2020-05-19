@@ -14,11 +14,12 @@ const EmptyString string = ""
 
 // API operations
 const (
-	ListWalletBalances = iota + 1
+	Register = iota + 1
+	ListWalletBalances
+	ListOrderBook
 	PlaceOrder
 	ListYourOrders
 	CancelOrder
-	ListOrderBook
 )
 
 // OrderExecutedSuccessfully successful order execution message

@@ -22,6 +22,8 @@ type Storage interface {
 	GetWalletsAndCurrencies() []dbResponses.DBWalletCurrency
 	CreateCurrency(newCurrency types.Currency) string
 	GetOrdersByType() *map[int][]dbResponses.DBOrder
+	VerifyUser(ID string) bool
+	RegisterUser(ID string)
 }
 
 // Database is the encapsulating struct of the wallets, currencies and orders map
@@ -29,6 +31,7 @@ type Database struct {
 	Wallets    map[string]types.Wallet
 	Currencies map[string]types.Currency
 	Orders     map[string]types.Order
+	Users      map[string]bool
 	mutex      sync.Mutex
 }
 
@@ -38,11 +41,31 @@ func NewDatabase() *Database {
 	wallets := make(map[string]types.Wallet)
 	currencies := make(map[string]types.Currency)
 	orders := make(map[string]types.Order)
+	users := make(map[string]bool)
 
 	return &Database{
 		Wallets:    wallets,
 		Currencies: currencies,
 		Orders:     orders,
+		Users:      users,
+	}
+}
+
+// VerifyUser verifies that the user is a registered on
+func (d *Database) VerifyUser(ID string) bool {
+
+	if _, ok := d.Users[ID]; ok {
+		return true
+	}
+
+	return false
+}
+
+// RegisterUser writes a user ID in the map with allowed users
+func (d *Database) RegisterUser(ID string) {
+
+	if _, ok := d.Users[ID]; !ok {
+		d.Users[ID] = true
 	}
 }
 
@@ -140,10 +163,11 @@ func (d *Database) GetWalletsAndCurrencies() []dbResponses.DBWalletCurrency {
 	walletsAndCurrencies := []dbResponses.DBWalletCurrency{}
 	for _, wallet := range wallets {
 
-		currencies := []types.Currency{}
-		for _, currency := range wallet.Wallet.Currencies {
+		currencies := []dbResponses.DBCurrency{}
+		for _, currencyID := range wallet.Wallet.Currencies {
 
-			currencies = append(currencies, d.GetCurrency(currency))
+			c := d.GetCurrency(currencyID)
+			currencies = append(currencies, *dbResponses.NewDBCurrency(c, currencyID))
 		}
 		walletsAndCurrencies = append(walletsAndCurrencies, *dbResponses.NewDBWalletCurrency(currencies, wallet.Wallet.Balance, wallet.ID))
 	}

@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"sort"
 	"sync"
+
+	"github.com/google/uuid"
 )
 
 // Controller encapsulates the API functionalities
@@ -88,7 +90,8 @@ func (c *Controller) ListOrderBook() ([]byte, error) {
 			}
 			return false
 		})
-		sellorders = sellorders[:10]
+
+		sellorders = sellorders[:min(10, len(sellorders))]
 		orderBook.LowestSellOrders = sellorders
 	}
 	if buyOrders, ok := (*groups)[types.BuyOrder]; ok {
@@ -100,7 +103,7 @@ func (c *Controller) ListOrderBook() ([]byte, error) {
 			}
 			return false
 		})
-		buyOrders = buyOrders[:10]
+		buyOrders = buyOrders[:min(10, len(buyOrders))]
 		orderBook.HighestBuyOrders = buyOrders
 	}
 	c.mutex.Unlock()
@@ -110,4 +113,29 @@ func (c *Controller) ListOrderBook() ([]byte, error) {
 	}
 	return response, nil
 
+}
+
+// RegisterUser generates a user ID to be included in all requests
+func (c *Controller) RegisterUser() string {
+	ID := uuid.New().String()
+	c.mutex.Lock()
+	c.db.RegisterUser(ID)
+	c.mutex.Unlock()
+	return ID
+}
+
+//DoesUserExist check the map of users to see if this ID has already been entered in it
+func (c *Controller) DoesUserExist(ID string) bool {
+
+	c.mutex.Lock()
+	exist := c.db.VerifyUser(ID)
+	c.mutex.Unlock()
+	return exist
+}
+
+func min(a int, b int) int {
+	if a >= b {
+		return b
+	}
+	return a
 }

@@ -140,6 +140,11 @@ func (_m *Storage) GetWalletsAndCurrencies() []dbResponses.DBWalletCurrency {
 	return r0
 }
 
+// RegisterUser provides a mock function with given fields: ID
+func (_m *Storage) RegisterUser(ID string) {
+	_m.Called(ID)
+}
+
 // UpdateCurrency provides a mock function with given fields: ID, currency
 func (_m *Storage) UpdateCurrency(ID string, currency types.Currency) {
 	_m.Called(ID, currency)
@@ -153,4 +158,18 @@ func (_m *Storage) UpdateOrder(ID string, updatedData types.Order) {
 // UpdateWallet provides a mock function with given fields: ID, wallet
 func (_m *Storage) UpdateWallet(ID string, wallet types.Wallet) {
 	_m.Called(ID, wallet)
+}
+
+// VerifyUser provides a mock function with given fields: ID
+func (_m *Storage) VerifyUser(ID string) bool {
+	ret := _m.Called(ID)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(string) bool); ok {
+		r0 = rf(ID)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
 }

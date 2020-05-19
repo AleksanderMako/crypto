@@ -38,7 +38,7 @@ func main() {
 			fmt.Println("Error accepting  " + err.Error())
 			os.Exit(1)
 		}
-		defer conn.Close()
+
 		fmt.Println("Accepted conncetion")
 
 		req, err := bufio.NewReader(conn).ReadBytes('\r')
@@ -52,10 +52,11 @@ func main() {
 
 		go func(conn net.Conn) {
 			fmt.Println("Started go routine ")
-
-			resp, err := r.HandleRequest(req, r.RouteRequest)
+			defer conn.Close()
+			resp, err := r.HandleRequest(req, r.IdentifyUser)
 			if err != nil {
-				conn.Write([]byte("error" + err.Error()))
+				erMsg := []byte("error " + err.Error())
+				conn.Write(append(erMsg, '\r'))
 				fmt.Println("Error in server " + err.Error())
 			} else {
 				conn.Write(append(resp, '\r'))

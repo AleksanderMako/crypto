@@ -37,6 +37,7 @@ func Test_HandleRequest_ForListOfOrders(t *testing.T) {
 	db.CreateOrder(*order1)
 	db.CreateOrder(*order2)
 	db.CreateOrder(*order3)
+	db.RegisterUser(user)
 
 	// Act
 
@@ -50,13 +51,14 @@ func Test_HandleRequest_ForListOfOrders(t *testing.T) {
 	request := requestModels.Request{
 		RequestType: types.ListYourOrders,
 		Data:        data,
+		UserID:      user,
 	}
 	req, err := json.Marshal(request)
 	if err != nil {
 		t.Error("Marshalling of request failed")
 	}
 
-	response, err := r.HandleRequest(req, r.RouteRequest)
+	response, err := r.HandleRequest(req, r.IdentifyUser)
 
 	//Assert
 
@@ -91,6 +93,9 @@ func Test_HandleRequest_ForListOfWallets(t *testing.T) {
 	id2 := ids[1]
 	id3 := ids[2]
 
+	user := uuid.New().String()
+	db.RegisterUser(user)
+
 	wallet1 := db.Wallets[id1]
 	wallet2 := db.Wallets[id2]
 	wallet3 := db.Wallets[id3]
@@ -114,12 +119,13 @@ func Test_HandleRequest_ForListOfWallets(t *testing.T) {
 	request := requestModels.Request{
 		RequestType: types.ListWalletBalances,
 		Data:        nil,
+		UserID:      user,
 	}
 	req, err := json.Marshal(request)
 	if err != nil {
 		t.Error("Marshalling of request failed")
 	}
-	response, err := r.HandleRequest(req, r.RouteRequest)
+	response, err := r.HandleRequest(req, r.IdentifyUser)
 
 	//Assert
 
