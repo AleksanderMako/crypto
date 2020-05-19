@@ -80,7 +80,7 @@ func (t *TransactionEngine) TryPlaceBuyOrder(newOrder dbResponses.DBOrder) (stri
 	return types.OrderExecutedSuccessfully, nil
 }
 
-// GetBuyOrders returns a list of buyer DBOrder structs which have an order struct and the corresponding ID for the map
+// GetBuyOrders returns a list of buyer DBOrder structs which have an order struct and the corresponding ID from the map
 func (t *TransactionEngine) GetBuyOrders(newOrder types.Order) []dbResponses.DBOrder {
 	buyOrders := t.db.GetOrders(func(order types.Order) bool {
 		// TODO: check this cID to maybe be ctype
@@ -134,6 +134,7 @@ func (t *TransactionEngine) FindMatchingBuyOrder(
 }
 
 // FindMatchingSellOrder search for a seller matching the buyers price given the buyer
+// using the Limit Order rules
 func (t *TransactionEngine) FindMatchingSellOrder(
 	newOrder types.Order,
 	candidateMatches []dbResponses.DBOrder) (matches []dbResponses.DBOrder, found bool) {
@@ -182,7 +183,7 @@ func (t *TransactionEngine) FindMatchingOrders(
 }
 
 // ExecuteTransfer executes the transfer of funds and tokens
-// a list of incoming orders is chosen here to try and exhaust the new order
+// A list of incoming orders is chosen here to try and exhaust the new order
 // the rate (buy/sell Price )for the transaction is taken from the new incoming order
 func (t *TransactionEngine) ExecuteTransfer(order *dbResponses.DBOrder, matchingOffers []dbResponses.DBOrder) error {
 
@@ -249,6 +250,7 @@ func (t *TransactionEngine) ExecuteTransfer(order *dbResponses.DBOrder, matching
 	return nil
 }
 
+// determineTransactionEntities abstracts the new order and the matching offers to buyer/sellers or seller/buyers
 func (t *TransactionEngine) determineTransactionEntities(order dbResponses.DBOrder, matchingOffer dbResponses.DBOrder) (*types.TransactionEntity, *types.TransactionEntity) {
 
 	if order.Order.OrderType == types.SellOrder {
@@ -269,6 +271,8 @@ func (t *TransactionEngine) determineTransactionEntities(order dbResponses.DBOrd
 	return buyer, seller
 
 }
+
+// determine which currency object should be fetched from the
 func (t *TransactionEngine) determineTransactionCurrencies(order dbResponses.DBOrder, matchingOffer dbResponses.DBOrder) (*types.Currency, *types.Currency) {
 	if order.Order.OrderType == types.SellOrder {
 
