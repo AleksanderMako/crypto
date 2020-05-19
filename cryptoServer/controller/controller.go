@@ -5,6 +5,7 @@ import (
 	"cryptoServer/database/types"
 	"cryptoServer/transactions"
 	"encoding/json"
+	"sort"
 	"sync"
 )
 
@@ -56,7 +57,7 @@ func (c *Controller) ListOrdersByUser(userID string) ([]byte, error) {
 }
 
 // CancelOrder deletes an order struct given its ID
-func (c *Controller) CancelOrder(ID string, userID string) {
+func (c *Controller) CancelOrder(ID string) {
 	c.mutex.Lock()
 	c.db.DeleteOrder(ID)
 	c.mutex.Unlock()
@@ -72,4 +73,41 @@ func (c *Controller) PlaceOrder(order types.Order) ([]byte, error) {
 	}
 	c.mutex.Unlock()
 	return []byte(status), nil
+}
+
+// ListOrderBook returns the top 10 highest buy and lowest sell prices
+func (c *Controller) ListOrderBook() ([]byte, error) {
+	c.mutex.Lock()
+	groups := c.db.GetOrdersByType()
+	orderBook := OrderBook{}
+	if sellorders, ok := (*groups)[types.SellOrder]; ok {
+		sort.Slice(sellorders, func(i, j int) bool {
+
+			if sellorders[i].Order.Price < sellorders[j].Order.Price {
+				return true
+			}
+			return false
+		})
+		sellorders = sellorders[:10]
+		orderBook.LowestSellOrders = sellorders
+	}
+	if buyOrders, ok := (*groups)[types.BuyOrder]; ok {
+
+		sort.Slice(buyOrders, func(i, j int) bool {
+
+			if buyOrders[i].Order.Price > buyOrders[j].Order.Price {
+				return true
+			}
+			return false
+		})
+		buyOrders = buyOrders[:10]
+		orderBook.HighestBuyOrders = buyOrders
+	}
+	c.mutex.Unlock()
+	response, err := json.Marshal(orderBook)
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
+
 }

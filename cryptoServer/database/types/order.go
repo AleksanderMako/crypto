@@ -8,6 +8,7 @@ type Order struct {
 	OrderType   int     `json:"OrderType"`
 	SumToInvest float64 `json:"sumToInvest"`
 	UserID      string  `json:"userID"`
+	Deleted     bool
 }
 
 // NewOrder returns a pointer to a new Order struct

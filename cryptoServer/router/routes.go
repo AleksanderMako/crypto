@@ -10,16 +10,17 @@ import (
 
 // Router encapsulates the logic needed to route the requests
 type Router struct {
-	controller controller.Controller
+	controller *controller.Controller
 }
 
-func NewRouter(controller controller.Controller) *Router {
+func NewRouter(controller *controller.Controller) *Router {
 
 	return &Router{
 		controller: controller,
 	}
 }
 
+// HandleRequest receives the request and then unmrshalles it into a Request struct
 func (r *Router) HandleRequest(data []byte, route func(req requestModels.Request) ([]byte, error)) ([]byte, error) {
 
 	var request requestModels.Request
@@ -76,6 +77,13 @@ func (r *Router) RouteRequest(req requestModels.Request) ([]byte, error) {
 			return nil, err
 		}
 		response, err = r.controller.PlaceOrder(payload)
+		if err != nil {
+			return nil, err
+		}
+		return response, nil
+
+	case types.ListOrderBook:
+		response, err = r.controller.ListOrderBook()
 		if err != nil {
 			return nil, err
 		}

@@ -21,7 +21,7 @@ func Test_HandleRequest_ForListOfOrders(t *testing.T) {
 	db := database.NewDatabase()
 	te := transactions.NewTransactionEngine(db)
 	c := controller.NewController(db, *te)
-	r := NewRouter(*c)
+	r := NewRouter(c)
 
 	user := uuid.New().String()
 
@@ -83,7 +83,7 @@ func Test_HandleRequest_ForListOfWallets(t *testing.T) {
 	db := database.NewDatabase()
 	te := transactions.NewTransactionEngine(db)
 	c := controller.NewController(db, *te)
-	r := NewRouter(*c)
+	r := NewRouter(c)
 
 	ids := utils.CreateWallets(db, 3)
 

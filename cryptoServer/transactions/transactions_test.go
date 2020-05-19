@@ -174,13 +174,13 @@ func Test_determineTransactionEntities(t *testing.T) {
 
 	//Arrange
 
-	buyer := types.Order{
+	buyer := *dbResponses.NewDBOrder("BuyerID", types.Order{
 		CurrencyID:  "BTC",
 		OrderType:   types.BuyOrder,
 		Price:       100,
 		WalletID:    "W1",
 		SumToInvest: 200,
-	}
+	})
 	seller := *dbResponses.NewDBOrder("sellerID", types.Order{
 		CurrencyID:  "BTC",
 		OrderType:   types.SellOrder,
@@ -199,7 +199,7 @@ func Test_determineTransactionEntities(t *testing.T) {
 
 	// Assert
 
-	if !reflect.DeepEqual(testBuyer.Order, buyer) {
+	if !reflect.DeepEqual(testBuyer.Order, buyer.Order) {
 		t.Error("Wrong buyer object")
 	}
 
@@ -266,7 +266,7 @@ func Test_ExecuteTransfer_ShouldCorrectlyUpdateAllBalancesWhenBuyerLesThanSeller
 	currencyID := WalletID + currencyName
 	currency := types.NewCurrency(currencyName)
 	wallet := types.NewWallet([]string{currencyID})
-	order := types.NewOrder(WalletID, currencyID, 100, types.BuyOrder, 200)
+	order := dbResponses.NewDBOrder("BuyerID", *types.NewOrder(WalletID, currencyID, 100, types.BuyOrder, 200))
 
 	matchingOrderWalletID := "matchOrderWallet"
 	matchingOfferCurrencyID := matchingOrderWalletID + currencyName
@@ -281,6 +281,7 @@ func Test_ExecuteTransfer_ShouldCorrectlyUpdateAllBalancesWhenBuyerLesThanSeller
 	db.Wallets[matchingOrderWalletID] = *matchinOfferWallet
 	db.Wallets[WalletID] = *wallet
 	db.Orders["matchingOffer"] = *matchingOrder
+	db.Orders["BuyerID"] = order.Order
 
 	// Act
 
@@ -321,7 +322,7 @@ func Test_ExecuteTransfer_ShouldCorrectlyUpdateAllBalancesWhenBuyerEqualSeller(t
 	currencyID := WalletID + currencyName
 	currency := types.NewCurrency(currencyName)
 	wallet := types.NewWallet([]string{currencyID})
-	order := types.NewOrder(WalletID, currencyID, 100, types.BuyOrder, 200)
+	order := dbResponses.NewDBOrder("BuyerID", *types.NewOrder(WalletID, currencyID, 100, types.BuyOrder, 200))
 
 	matchingOrderWalletID := "matchOrderWallet"
 	matchingOfferCurrencyID := matchingOrderWalletID + currencyName
@@ -336,6 +337,7 @@ func Test_ExecuteTransfer_ShouldCorrectlyUpdateAllBalancesWhenBuyerEqualSeller(t
 	db.Wallets[matchingOrderWalletID] = *matchinOfferWallet
 	db.Wallets[WalletID] = *wallet
 	db.Orders["matchingOffer"] = *matchingOrder
+	db.Orders["BuyerID"] = order.Order
 
 	// Act
 
@@ -359,8 +361,11 @@ func Test_ExecuteTransfer_ShouldCorrectlyUpdateAllBalancesWhenBuyerEqualSeller(t
 		t.Errorf("Wrong amount of coin in buyers balance should be 980 bu it is %v", db.Currencies[matchingOfferCurrencyID].Ammount)
 	}
 
-	if _, ok := db.Orders["matchingOffer"]; ok {
-		t.Error("The matching offer should not be in the db anymore ")
+	if matchingOffer, ok := db.Orders["matchingOffer"]; ok {
+		if matchingOffer.Deleted != false {
+			t.Error("The matching offer should not be in the db anymore ")
+
+		}
 	}
 }
 

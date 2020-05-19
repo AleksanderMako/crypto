@@ -24,9 +24,12 @@ func NewTransactionEngine(db database.Storage) *TransactionEngine {
 
 // PlaceOrder attempts to execute either a buy or a sell Limit Order
 func (t *TransactionEngine) PlaceOrder(order types.Order) (string, error) {
+
+	ID := t.db.CreateOrder(order)
+	newOrder := dbResponses.NewDBOrder(ID, order)
 	if order.OrderType == types.SellOrder {
 
-		status, err := t.TryPlaceSellOrder(order)
+		status, err := t.TryPlaceSellOrder(*newOrder)
 		if err != nil {
 			return "", err
 
@@ -34,7 +37,7 @@ func (t *TransactionEngine) PlaceOrder(order types.Order) (string, error) {
 		return status, nil
 	}
 
-	status, err := t.TryPlaceBuyOrder(order)
+	status, err := t.TryPlaceBuyOrder(*newOrder)
 	if err != nil {
 		return "", err
 	}
@@ -43,10 +46,10 @@ func (t *TransactionEngine) PlaceOrder(order types.Order) (string, error) {
 }
 
 // TryPlaceSellOrder tries to find matching buyer otherwise places this order with the rest
-func (t *TransactionEngine) TryPlaceSellOrder(newOrder types.Order) (string, error) {
+func (t *TransactionEngine) TryPlaceSellOrder(newOrder dbResponses.DBOrder) (string, error) {
 	// get buy orders
-	buyOrders := t.GetBuyOrders(newOrder)
-	matchingOffers, found := t.FindMatchingBuyOrder(newOrder, buyOrders)
+	buyOrders := t.GetBuyOrders(newOrder.Order)
+	matchingOffers, found := t.FindMatchingBuyOrder(newOrder.Order, buyOrders)
 	if found {
 		// execute transaction
 
@@ -54,21 +57,17 @@ func (t *TransactionEngine) TryPlaceSellOrder(newOrder types.Order) (string, err
 		if err != nil {
 			return "", err
 		}
-	} else {
-		// add sell order to exisitng order
-		t.db.CreateOrder(newOrder)
-		return types.OrderHold, nil
 	}
 	return types.OrderExecutedSuccessfully, nil
 
 }
 
 // TryPlaceBuyOrder tries to find matching seller otherwiser places this order with the rest
-func (t *TransactionEngine) TryPlaceBuyOrder(newOrder types.Order) (string, error) {
+func (t *TransactionEngine) TryPlaceBuyOrder(newOrder dbResponses.DBOrder) (string, error) {
 
 	//get sell orders
-	sellOrders := t.GetSellOrders(newOrder)
-	mathchingOffers, found := t.FindMatchingSellOrder(newOrder, sellOrders)
+	sellOrders := t.GetSellOrders(newOrder.Order)
+	mathchingOffers, found := t.FindMatchingSellOrder(newOrder.Order, sellOrders)
 
 	if found {
 
@@ -76,10 +75,6 @@ func (t *TransactionEngine) TryPlaceBuyOrder(newOrder types.Order) (string, erro
 		if err != nil {
 			return "", err
 		}
-
-	} else {
-		t.db.CreateOrder(newOrder)
-		return types.OrderHold, nil
 
 	}
 	return types.OrderExecutedSuccessfully, nil
@@ -89,7 +84,9 @@ func (t *TransactionEngine) TryPlaceBuyOrder(newOrder types.Order) (string, erro
 func (t *TransactionEngine) GetBuyOrders(newOrder types.Order) []dbResponses.DBOrder {
 	buyOrders := t.db.GetOrders(func(order types.Order) bool {
 		// TODO: check this cID to maybe be ctype
-		if order.OrderType == types.BuyOrder && t.db.GetCurrency(order.CurrencyID).Name == t.db.GetCurrency(newOrder.CurrencyID).Name {
+		if order.OrderType == types.BuyOrder &&
+			t.db.GetCurrency(order.CurrencyID).Name == t.db.GetCurrency(newOrder.CurrencyID).Name &&
+			order.Deleted != true {
 			return true
 		}
 		return false
@@ -101,7 +98,9 @@ func (t *TransactionEngine) GetBuyOrders(newOrder types.Order) []dbResponses.DBO
 func (t *TransactionEngine) GetSellOrders(newOrder types.Order) []dbResponses.DBOrder {
 
 	sellOrders := t.db.GetOrders(func(order types.Order) bool {
-		if order.OrderType == types.SellOrder && t.db.GetCurrency(order.CurrencyID).Name == t.db.GetCurrency(newOrder.CurrencyID).Name {
+		if order.OrderType == types.SellOrder &&
+			t.db.GetCurrency(order.CurrencyID).Name == t.db.GetCurrency(newOrder.CurrencyID).Name &&
+			order.Deleted != true {
 			return true
 		}
 		return false
@@ -160,6 +159,8 @@ func (t *TransactionEngine) FindMatchingSellOrder(
 	})
 }
 
+//FindMatchingOrders returns orders that match the incomings order selling/buying price
+//using the Limit order rules
 func (t *TransactionEngine) FindMatchingOrders(
 	newOrder types.Order,
 	candidateMatches []dbResponses.DBOrder,
@@ -180,15 +181,18 @@ func (t *TransactionEngine) FindMatchingOrders(
 	return nil, false
 }
 
-func (t *TransactionEngine) ExecuteTransfer(order *types.Order, matchingOffers []dbResponses.DBOrder) error {
+// ExecuteTransfer executes the transfer of funds and tokens
+// a list of incoming orders is chosen here to try and exhaust the new order
+// the rate (buy/sell Price )for the transaction is taken from the new incoming order
+func (t *TransactionEngine) ExecuteTransfer(order *dbResponses.DBOrder, matchingOffers []dbResponses.DBOrder) error {
 
 	for _, matchingOffer := range matchingOffers {
 
-		if order.SumToInvest == 0 {
+		if order.Order.SumToInvest == 0 {
 			return nil
 		}
 
-		exchangeRate := order.Price
+		exchangeRate := order.Order.Price
 		buyer, seller := t.determineTransactionEntities(*order, matchingOffer)
 		buyCurrencty, sellCurrency := t.determineTransactionCurrencies(*order, matchingOffer)
 
@@ -202,8 +206,9 @@ func (t *TransactionEngine) ExecuteTransfer(order *types.Order, matchingOffers [
 		if buyer.Order.SumToInvest == seller.Order.SumToInvest {
 
 			t.transferTokens(buyCurrencty, sellCurrency, buyer.Order.SumToInvest, exchangeRate)
-			t.db.DeleteOrder(maxIDLen(buyer.OrderID, seller.OrderID))
-			order.SumToInvest = 0
+			t.db.DeleteOrder(buyer.OrderID)
+			t.db.DeleteOrder(seller.OrderID)
+			order.Order.SumToInvest = 0
 		}
 
 		if buyer.Order.SumToInvest < seller.Order.SumToInvest {
@@ -211,17 +216,13 @@ func (t *TransactionEngine) ExecuteTransfer(order *types.Order, matchingOffers [
 			t.transferTokens(buyCurrencty, sellCurrency, buyer.Order.SumToInvest, exchangeRate)
 			seller.Order.SumToInvest -= buyer.Order.SumToInvest
 			buyer.Order.SumToInvest -= buyer.Order.SumToInvest
-
-			if buyer.OrderID != types.EmptyString {
-				// just update seller
-				t.db.DeleteOrder(buyer.OrderID)
-				*order = seller.Order
-			} else {
-				*order = buyer.Order
-			}
+			t.db.DeleteOrder(buyer.OrderID)
 			t.db.UpdateOrder(seller.OrderID, seller.Order)
-
-			// maybe recur here
+			if buyer.NewOrder {
+				order.Order = buyer.Order
+			} else {
+				order.Order = seller.Order
+			}
 		}
 
 		if buyer.Order.SumToInvest > seller.Order.SumToInvest {
@@ -229,17 +230,12 @@ func (t *TransactionEngine) ExecuteTransfer(order *types.Order, matchingOffers [
 
 			buyer.Order.SumToInvest -= seller.Order.SumToInvest
 			seller.Order.SumToInvest -= seller.Order.SumToInvest
-			if buyer.OrderID == types.EmptyString {
-				// create new order for buyer
-				// delete selling order
-				t.db.CreateOrder(buyer.Order)
-				t.db.DeleteOrder(seller.OrderID)
-				*order = buyer.Order
-
+			t.db.DeleteOrder(seller.OrderID)
+			t.db.UpdateOrder(buyer.OrderID, buyer.Order)
+			if buyer.NewOrder {
+				order.Order = buyer.Order
 			} else {
-				// just update existing buying order
-				t.db.UpdateOrder(buyer.OrderID, buyer.Order)
-				*order = seller.Order
+				order.Order = seller.Order
 			}
 		}
 
@@ -253,11 +249,11 @@ func (t *TransactionEngine) ExecuteTransfer(order *types.Order, matchingOffers [
 	return nil
 }
 
-func (t *TransactionEngine) determineTransactionEntities(order types.Order, matchingOffer dbResponses.DBOrder) (*types.TransactionEntity, *types.TransactionEntity) {
+func (t *TransactionEngine) determineTransactionEntities(order dbResponses.DBOrder, matchingOffer dbResponses.DBOrder) (*types.TransactionEntity, *types.TransactionEntity) {
 
-	if order.OrderType == types.SellOrder {
+	if order.Order.OrderType == types.SellOrder {
 
-		seller := types.NewTransactionEntity(t.db.GetWallet(order.WalletID), order, types.EmptyString)
+		seller := types.NewTransactionEntity(t.db.GetWallet(order.Order.WalletID), order.Order, order.ID)
 		seller.NewOrder = true
 
 		buyer := types.NewTransactionEntity(t.db.GetWallet(matchingOffer.Order.WalletID), matchingOffer.Order, matchingOffer.ID)
@@ -268,19 +264,19 @@ func (t *TransactionEngine) determineTransactionEntities(order types.Order, matc
 	seller := types.NewTransactionEntity(t.db.GetWallet(matchingOffer.Order.WalletID), matchingOffer.Order, matchingOffer.ID)
 	seller.NewOrder = false
 
-	buyer := types.NewTransactionEntity(t.db.GetWallet(order.WalletID), order, types.EmptyString)
+	buyer := types.NewTransactionEntity(t.db.GetWallet(order.Order.WalletID), order.Order, order.ID)
 	buyer.NewOrder = true
 	return buyer, seller
 
 }
-func (t *TransactionEngine) determineTransactionCurrencies(order types.Order, matchingOffer dbResponses.DBOrder) (*types.Currency, *types.Currency) {
-	if order.OrderType == types.SellOrder {
+func (t *TransactionEngine) determineTransactionCurrencies(order dbResponses.DBOrder, matchingOffer dbResponses.DBOrder) (*types.Currency, *types.Currency) {
+	if order.Order.OrderType == types.SellOrder {
 
 		buyCurrencty := t.db.GetCurrency(matchingOffer.Order.CurrencyID)
-		sellCurrency := t.db.GetCurrency(order.CurrencyID)
+		sellCurrency := t.db.GetCurrency(order.Order.CurrencyID)
 		return &buyCurrencty, &sellCurrency
 	}
-	buyCurrencty := t.db.GetCurrency(order.CurrencyID)
+	buyCurrencty := t.db.GetCurrency(order.Order.CurrencyID)
 	sellCurrency := t.db.GetCurrency(matchingOffer.Order.CurrencyID)
 	return &buyCurrencty, &sellCurrency
 }
@@ -309,14 +305,6 @@ func (t *TransactionEngine) doesSellerHaveCoins(seller *types.TransactionEntity,
 		return false
 	}
 	return true
-}
-
-func maxIDLen(a, b string) string {
-
-	if len(a) > len(b) {
-		return a
-	}
-	return b
 }
 
 func (t *TransactionEngine) verifyTransactionEconomics(buyer *types.TransactionEntity,

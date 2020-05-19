@@ -30,8 +30,17 @@ func (_m *Storage) CreateCurrency(newCurrency types.Currency) string {
 }
 
 // CreateOrder provides a mock function with given fields: newOrder
-func (_m *Storage) CreateOrder(newOrder types.Order) {
-	_m.Called(newOrder)
+func (_m *Storage) CreateOrder(newOrder types.Order) string {
+	ret := _m.Called(newOrder)
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func(types.Order) string); ok {
+		r0 = rf(newOrder)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
 }
 
 // DeleteOrder provides a mock function with given fields: key
@@ -63,6 +72,22 @@ func (_m *Storage) GetOrders(filter func(types.Order) bool) []dbResponses.DBOrde
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]dbResponses.DBOrder)
+		}
+	}
+
+	return r0
+}
+
+// GetOrdersByType provides a mock function with given fields:
+func (_m *Storage) GetOrdersByType() *map[int][]dbResponses.DBOrder {
+	ret := _m.Called()
+
+	var r0 *map[int][]dbResponses.DBOrder
+	if rf, ok := ret.Get(0).(func() *map[int][]dbResponses.DBOrder); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*map[int][]dbResponses.DBOrder)
 		}
 	}
 
