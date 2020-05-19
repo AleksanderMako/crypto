@@ -83,7 +83,6 @@ func (t *TransactionEngine) TryPlaceBuyOrder(newOrder dbResponses.DBOrder) (stri
 // GetBuyOrders returns a list of buyer DBOrder structs which have an order struct and the corresponding ID for the map
 func (t *TransactionEngine) GetBuyOrders(newOrder types.Order) []dbResponses.DBOrder {
 	buyOrders := t.db.GetOrders(func(order types.Order) bool {
-		// TODO: check this cID to maybe be ctype
 		if order.OrderType == types.BuyOrder &&
 			t.db.GetCurrency(order.CurrencyID).Name == t.db.GetCurrency(newOrder.CurrencyID).Name &&
 			order.Deleted != true {
