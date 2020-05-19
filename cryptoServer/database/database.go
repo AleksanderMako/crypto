@@ -26,11 +26,10 @@ type Storage interface {
 
 // Database is the encapsulating struct of the wallets, currencies and orders map
 type Database struct {
-	Wallets          map[string]types.Wallet
-	Currencies       map[string]types.Currency
-	WalletCurrencies map[string]string
-	Orders           map[string]types.Order
-	mutex            sync.Mutex
+	Wallets    map[string]types.Wallet
+	Currencies map[string]types.Currency
+	Orders     map[string]types.Order
+	mutex      sync.Mutex
 }
 
 // NewDatabase returns a pointer to a new Database struct
@@ -38,14 +37,12 @@ func NewDatabase() *Database {
 
 	wallets := make(map[string]types.Wallet)
 	currencies := make(map[string]types.Currency)
-	walletCurrencies := make(map[string]string)
 	orders := make(map[string]types.Order)
 
 	return &Database{
-		Wallets:          wallets,
-		Currencies:       currencies,
-		WalletCurrencies: walletCurrencies,
-		Orders:           orders,
+		Wallets:    wallets,
+		Currencies: currencies,
+		Orders:     orders,
 	}
 }
 
